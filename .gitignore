@@ -1,0 +1,8 @@
+__pycache__/
+*.pyc
+*.log
+build/
+dist/
+*.vcd
+*.out
+

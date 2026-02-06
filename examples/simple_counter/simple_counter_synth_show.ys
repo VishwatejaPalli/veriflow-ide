@@ -1,0 +1,7 @@
+# Synthesis + schematic generation for simple_counter
+read_verilog examples/simple_counter/simple_counter.v
+hierarchy -check -top simple_counter
+proc; opt; fsm; opt
+synth -top simple_counter
+write_json examples/simple_counter/build/simple_counter.json
+show -format svg -prefix examples/simple_counter/build/simple_counter
