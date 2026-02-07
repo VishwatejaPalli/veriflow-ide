@@ -1,0 +1,11 @@
+[Desktop Entry]
+Version=1.0
+Type=Application
+Name=VeriFlow IDE
+Comment=Hardware Description Language Integrated Development Environment
+Exec=/usr/bin/python3 %d/main.py
+Icon=%d/resources/icons/veriflow-ide.png
+Terminal=false
+Categories=Development;IDE;Electronics;
+Keywords=Verilog;SystemVerilog;HDL;FPGA;ASIC;EDA;
+StartupWMClass=VeriFlow IDE

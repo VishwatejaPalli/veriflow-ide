@@ -43,6 +43,29 @@ OpenHDL-IDE is a cross-platform HDL development environment that brings editing,
 	python main.py
 	```
 
+## Desktop Integration (Linux)
+
+VeriFlow IDE can be installed as a desktop application with an icon in your application menu.
+
+1. **Generate the application icon** (requires Pillow):
+	```bash
+	pip install Pillow
+	python resources/icons/create_icon.py
+	```
+
+2. **Install desktop entry**:
+	```bash
+	./install_desktop.sh
+	```
+
+This creates a launcher in your application menu. You can then start VeriFlow IDE like any other application.
+
+**To uninstall**:
+```bash
+rm ~/.local/share/applications/veriflow-ide.desktop
+rm ~/.local/share/icons/hicolor/256x256/apps/veriflow-ide.png
+```
+
 ## Testing
 Run the full suite (unit + integration) via:
 ```bash
