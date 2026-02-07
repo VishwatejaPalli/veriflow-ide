@@ -1,0 +1,265 @@
+OpenHDL-IDE Quick Reference Cheat Sheet
+=========================================
+
+TOOL MENU SHORTCUTS
+-------------------
+Simulation & Verification:
+  - Compile with Icarus Verilog... → Full compilation dialog
+  - Lint with Verilator...        → HDL linting
+  - Lint with Verible...           → Style checking
+  - Format with Verible...         → Code formatting
+  - Coverage Report                → Coverage analysis
+
+Synthesis:
+  - Synthesize with Yosys...       → RTL synthesis
+  - OpenLane Flow...               → ASIC flow
+  - OpenROAD...                    → Place & route
+
+Layout & Physical:
+  - Open Magic...                  → Layout editor
+  - KLayout Viewer...              → Layout viewing
+  - KLayout DRC...                 → Design rules
+  - Netgen LVS...                  → Layout vs schematic
+
+Timing & Analog:
+  - Static Timing (OpenSTA)...     → Timing analysis
+  - NgSpice Simulation...          → SPICE simulation
+
+
+COMMAND-LINE EQUIVALENTS
+------------------------
+Simulation:
+  iverilog -g2012 -o out.vvp design.sv tb.sv
+  vvp out.vvp
+  gtkwave waveform.vcd
+
+Synthesis:
+  yosys -s synth_script.ys
+  yosys -p "read_verilog design.v; synth; write_verilog out.v"
+
+Linting:
+  verilator --lint-only -Wall design.sv
+  verible-verilog-lint design.sv
+  verible-verilog-lint --rules=rule1,rule2 design.sv
+
+Formatting:
+  verible-verilog-format --inplace design.sv
+  verible-verilog-format --column_limit=100 design.sv
+
+Layout:
+  magic -dnull -noconsole script.tcl
+  klayout layout.gds
+  klayout -b -r drc_rules.drc layout.gds
+
+Verification:
+  netgen -batch lvs schem.sp layout.sp setup.tcl
+  sta timing_script.tcl
+
+Analog:
+  ngspice -b netlist.sp -o output.log
+  ngspice netlist.sp  # Interactive
+
+
+DEMO FILES
+----------
+examples/demo_alu/
+  alu.sv              → 8-bit ALU design
+  alu_tb.sv           → Testbench
+  alu_synth.ys        → Yosys script
+  verible_waiver.vlt  → Lint waivers
+
+examples/demo_spice/
+  inverter.sp         → CMOS inverter
+  rc_circuit.sp       → RC filter
+
+examples/demo_timing/
+  simple_path.sdc     → Timing constraints
+  sta_script.tcl      → Analysis script
+
+examples/demo_layout/
+  simple_layout.tcl   → Magic script
+  klayout_drc.lydrc   → DRC rules
+
+examples/demo_netlist/
+  schematic_netlist.sp → Reference netlist
+  layout_netlist.sp    → Extracted netlist
+  netgen_setup.tcl     → LVS config
+
+
+MAKEFILE TARGETS
+----------------
+make sim        → Run simulation
+make lint       → Run linting
+make format     → Format code
+make synth      → Run synthesis
+make spice      → SPICE simulation
+make waveform   → Open GTKWave
+make clean      → Remove generated files
+make help       → Show all targets
+
+
+TEST SCRIPT
+-----------
+bash run_tests.sh   → Test all tools
+python3 validate_demos.py → Check demo files
+
+
+COMMON FILE EXTENSIONS
+----------------------
+HDL Design:
+  .v    → Verilog
+  .sv   → SystemVerilog
+  .vh   → Verilog header
+  .svh  → SystemVerilog header
+
+Simulation:
+  .vvp  → VVP executable
+  .vcd  → Value change dump (waveform)
+  .fst  → Fast signal database
+
+Synthesis:
+  .ys   → Yosys script
+  .json → JSON netlist
+  .blif → Berkeley Logic Interchange Format
+
+Layout:
+  .gds  → GDSII stream
+  .oas  → OASIS layout
+  .mag  → Magic layout
+  .def  → Design Exchange Format
+  .lef  → Library Exchange Format
+
+Analog:
+  .sp   → SPICE netlist
+  .cir  → Circuit netlist
+  .lib  → Liberty timing library
+  .sdc  → Synopsys Design Constraints
+
+Scripts:
+  .tcl  → Tool Command Language
+  .drc  → DRC rules
+  .lvs  → LVS rules
+
+
+EDITOR SHORTCUTS
+----------------
+Navigation:
+  Ctrl+G          → Go to line
+  Ctrl+F          → Find
+  Ctrl+H          → Replace
+
+Editing:
+  Tab             → Indent
+  Shift+Tab       → Dedent
+  Ctrl+/          → Toggle comment
+  Ctrl+D          → Duplicate line
+
+View:
+  Ctrl++          → Zoom in
+  Ctrl+-          → Zoom out
+  Ctrl+0          → Reset zoom
+
+
+TIPS & TRICKS
+-------------
+1. Use Command Preview
+   - Always check the command before running
+   - Copy it for use in scripts
+
+2. Check Diagnostics Tab
+   - Click errors to jump to source
+   - Filter by type (error/warning)
+
+3. Use History Tab
+   - Re-run previous commands
+   - Track what you've executed
+
+4. Organize Files
+   - Use project hierarchy
+   - Keep sources and tests separate
+
+5. Start with Examples
+   - Run make sim in demo_alu/
+   - Modify and experiment
+
+6. Check Tool Output
+   - Read Console for detailed messages
+   - Scroll for full context
+
+7. Save Configurations
+   - Copy successful commands
+   - Create shell scripts or Makefiles
+
+8. Use Waivers for Linting
+   - Suppress false positives
+   - Document why rules are waived
+
+
+TROUBLESHOOTING
+---------------
+Tool not found:
+  → Check: which tool_name
+  → Install: sudo apt install tool_name
+  → Path: echo $PATH
+
+File not found:
+  → Use absolute paths
+  → Check current directory
+  → Verify file exists
+
+Permission denied:
+  → chmod +x filename
+  → Check file ownership
+  → Run with proper permissions
+
+Compilation errors:
+  → Check syntax with linter first
+  → Verify all modules defined
+  → Check include paths
+
+No waveform:
+  → Ensure $dumpfile in testbench
+  → Check simulation completed
+  → Verify .vcd file created
+
+Synthesis fails:
+  → Lint with Verilator
+  → Check unsupported constructs
+  → Verify parameter values
+
+
+USEFUL LINKS
+------------
+Documentation:
+  docs/USER_GUIDE.md       → IDE usage
+  docs/TOOLS_GUIDE.md      → Tool details
+  docs/DEVELOPER_GUIDE.md  → Architecture
+
+Examples:
+  examples/README_TOOLS.md → Demo usage
+  examples/WORKFLOW_GUIDE.txt → Visual flows
+
+Tool Docs:
+  iverilog.icarus.com
+  verilator.org
+  github.com/chipsalliance/verible
+  yosyshq.net/yosys
+  opencircuitdesign.com
+  klayout.de
+
+
+GETTING HELP
+------------
+1. Check Examples: examples/demo_*/
+2. Read Guides: docs/*.md
+3. View Command Preview in dialogs
+4. Check Console output
+5. Consult tool documentation
+6. GitHub Issues (if applicable)
+
+
+Quick Start Workflow:
+  1. cd examples/demo_alu
+  2. make sim
+  3. make waveform
+  4. Experiment with Tools menu!

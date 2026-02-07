@@ -1,0 +1,174 @@
+<!DOCTYPE html>
+<html>
+<head>
+    <title>OpenHDL-IDE Demo Results</title>
+    <style>
+        body {
+            font-family: 'Segoe UI', Tahoma, Geneva, Verdana, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+        h1 { color: #333; border-bottom: 3px solid #007acc; padding-bottom: 10px; }
+        h2 { color: #0066cc; margin-top: 30px; }
+        .graph-container {
+            background: white;
+            padding: 20px;
+            margin: 15px 0;
+            border-radius: 8px;
+            box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+        }
+        .graph-image {
+            max-width: 100%;
+            height: auto;
+            border: 1px solid #ddd;
+            border-radius: 4px;
+        }
+        .description {
+            color: #666;
+            margin: 10px 0;
+            font-size: 14px;
+        }
+        .info-box {
+            background: #e7f3ff;
+            border-left: 4px solid #007acc;
+            padding: 10px;
+            margin: 10px 0;
+            border-radius: 4px;
+        }
+        .file-path {
+            background: #f0f0f0;
+            padding: 5px 10px;
+            font-family: monospace;
+            border-radius: 3px;
+            display: inline-block;
+            margin: 5px 0;
+        }
+        .stats {
+            display: grid;
+            grid-template-columns: repeat(2, 1fr);
+            gap: 15px;
+            margin: 20px 0;
+        }
+        .stat-box {
+            background: white;
+            padding: 15px;
+            border-radius: 8px;
+            box-shadow: 0 1px 4px rgba(0,0,0,0.1);
+        }
+        .stat-box h3 { margin: 0 0 10px 0; color: #007acc; }
+        .stat-box p { margin: 5px 0; }
+    </style>
+</head>
+<body>
+    <h1>🎛️ OpenHDL-IDE Demo Results Viewer</h1>
+    
+    <div class="info-box">
+        <strong>📊 Visualization Suite</strong><br>
+        All generated graphs from tool demonstrations are displayed below.
+    </div>
+
+    <h2>1️⃣ ALU Results Bar Chart</h2>
+    <div class="graph-container">
+        <p class="description"><strong>ALU Operations Test Results</strong></p>
+        <div class="info-box">
+            Tests performed: ADD (10+20=30), SUB (50-30=20), AND (0xAA&0xCC), OR (0xAA|0xCC)
+        </div>
+        <img src="/view/demo_alu/alu_results.png" class="graph-image" alt="ALU Results">
+        <p class="file-path">demo_alu/alu_results.png (45 KB)</p>
+    </div>
+
+    <h2>2️⃣ CMOS Inverter Response</h2>
+    <div class="graph-container">
+        <p class="description"><strong>Transient Response & Propagation Delays</strong></p>
+        <div class="info-box">
+            Shows inverter output following input pulse with measurements:
+            <ul style="margin: 5px 0;">
+                <li>tpHL (high→low): 5.07 ns</li>
+                <li>tpLH (low→high): 5.13 ns</li>
+            </ul>
+        </div>
+        <img src="/view/demo_spice/inverter_plot.png" class="graph-image" alt="Inverter Plot">
+        <p class="file-path">demo_spice/inverter_plot.png (73 KB)</p>
+    </div>
+
+    <h2>3️⃣ RC Low-Pass Filter Analysis</h2>
+    <div class="graph-container">
+        <p class="description"><strong>Frequency Response and Transient Behavior</strong></p>
+        <div class="info-box">
+            Top: Transient response showing exponential charging curve<br>
+            Bottom: Bode plot showing frequency response with -3dB cutoff at ~159 Hz
+        </div>
+        <img src="/view/demo_spice/rc_filter_plot.png" class="graph-image" alt="RC Filter">
+        <p class="file-path">demo_spice/rc_filter_plot.png (96 KB)</p>
+    </div>
+
+    <h2>4️⃣ ALU Synthesized Schematic (Large)</h2>
+    <div class="graph-container">
+        <p class="description"><strong>Complete Logic Diagram After Synthesis</strong></p>
+        <div class="info-box">
+            Comprehensive schematic showing all logic gates and interconnections.
+            Note: This is a large file (13 MB) and may take time to load.
+        </div>
+        <img src="/view/demo_alu/alu_schematic.png" class="graph-image" alt="ALU Schematic" style="border: 2px solid #ff9900;">
+        <p class="file-path">demo_alu/alu_schematic.png (13 MB - Full Logic Diagram)</p>
+    </div>
+
+    <h2>📈 Summary Statistics</h2>
+    <div class="stats">
+        <div class="stat-box">
+            <h3>Digital Simulation</h3>
+            <p>✓ 5 ALU operations tested</p>
+            <p>✓ VCD waveform captured</p>
+            <p>✓ All tests passed</p>
+        </div>
+        <div class="stat-box">
+            <h3>Synthesis</h3>
+            <p>✓ Netlist generated</p>
+            <p>✓ Schematic created</p>
+            <p>✓ JSON hierarchy exported</p>
+        </div>
+        <div class="stat-box">
+            <h3>Analog Simulation</h3>
+            <p>✓ Inverter: Delays measured</p>
+            <p>✓ RC Filter: Response analyzed</p>
+            <p>✓ RAW files generated</p>
+        </div>
+        <div class="stat-box">
+            <h3>Visualization</h3>
+            <p>✓ 3 PNG plots generated</p>
+            <p>✓ Schematic diagram created</p>
+            <p>✓ All files viewable</p>
+        </div>
+    </div>
+
+    <h2>📁 Available Files Directory</h2>
+    <div class="info-box">
+        <p><strong>Digital Design Output:</strong></p>
+        <ul>
+            <li>demo_alu/alu.sv - Design source</li>
+            <li>demo_alu/alu_tb.sv - Testbench</li>
+            <li>demo_alu/alu_tb.vcd - Waveforms</li>
+            <li>demo_alu/alu_synth.v - Synthesized netlist</li>
+            <li>demo_alu/alu_synth.json - Design statistics</li>
+            <li>demo_alu/alu_schematic.dot - GraphViz source</li>
+            <li>demo_alu/alu_schematic.png - Schematic image</li>
+            <li>demo_alu/alu_results.png - Results plot</li>
+        </ul>
+        
+        <p style="margin-top: 15px;"><strong>Analog Simulation Output:</strong></p>
+        <ul>
+            <li>demo_spice/inverter.sp - Inverter circuit</li>
+            <li>demo_spice/rc_circuit.sp - RC filter circuit</li>
+            <li>demo_spice/inverter_output.raw - SPICE output</li>
+            <li>demo_spice/inverter_plot.png - Analysis plot</li>
+            <li>demo_spice/rc_filter_plot.png - Frequency response</li>
+        </ul>
+    </div>
+
+    <footer style="text-align: center; margin-top: 40px; color: #999; border-top: 1px solid #ddd; padding-top: 20px;">
+        <p>OpenHDL-IDE Demo Results Viewer | Generated on 2026-02-07</p>
+    </footer>
+</body>
+</html>

@@ -4,13 +4,18 @@ OpenHDL-IDE is a cross-platform HDL development environment that brings editing,
 
 ## Feature Highlights
 - QScintilla-powered Verilog/SystemVerilog editor with fallbacks when QScintilla bindings are unavailable
-- Tool wrappers for iverilog, vvp, Yosys, and GTKWave with unified command execution
-- Optional Verilator lint + coverage helpers (verilator_coverage annotate/write-info flows)
+- **Comprehensive tool integrations** with customized GUI dialogs:
+  - **Simulation & Verification**: iverilog, Verilator (lint/coverage), Verible (lint/format), VVP, GTKWave
+  - **Synthesis**: Yosys, OpenLane, OpenROAD
+  - **Layout & Physical**: Magic, KLayout (viewer/DRC), Netgen (LVS)
+  - **Timing & Analog**: OpenSTA, NgSpice
+- Custom dialogs for each tool with file selection, option configuration, and command preview
 - Multi-pane output dock with Console, Diagnostics, Coverage, and History tabs plus one-click reruns
 - File tree context menu for fast new-file/new-folder, rename, and delete operations
-- Docked console for logs plus regex-based error parsing to jump from diagnostics back to code (WIP UI hookup)
+- Docked console for logs plus regex-based error parsing to jump from diagnostics back to code
 - JSON project manifest with top-module tracking and file lists
 - Integration tests that compile and run a minimal design through iverilog → vvp to keep the flow healthy
+- Light/Dark themes with customizable accent colors and UI scaling
 
 ## Requirements
 - Python 3.10+
@@ -46,8 +51,47 @@ python -m unittest discover
 Integration tests automatically skip if the required external tools are missing.
 
 ## Examples
-- `examples/simple_counter/`: runnable Verilog design + testbench + Yosys scripts
-- `examples/systemverilog_demo.sv`: standalone SystemVerilog module showcasing packages, interfaces, and `always_ff/always_comb`
+
+The `examples/` directory contains comprehensive demonstrations for all integrated tools:
+
+### Quick Start
+```bash
+cd examples
+make help              # See all available targets
+make sim              # Run digital simulation
+make synth            # Run synthesis
+bash run_tests.sh     # Test all available tools
+```
+
+### Demo Directories
+- **`demo_alu/`**: Complete digital design flow (SystemVerilog ALU)
+  - Simulation with iverilog/VVP
+  - Linting with Verilator/Verible
+  - Synthesis with Yosys
+  - Waveform generation for GTKWave
+  
+- **`demo_spice/`**: Analog circuit simulations
+  - CMOS inverter example
+  - RC circuit analysis
+  - NgSpice demonstrations
+  
+- **`demo_timing/`**: Static timing analysis
+  - SDC constraints
+  - OpenSTA scripts
+  
+- **`demo_layout/`**: Physical design
+  - Magic layout scripts
+  - KLayout DRC rules
+  
+- **`demo_netlist/`**: LVS verification
+  - Schematic vs. layout comparison
+  - Netgen setup examples
+
+- **Legacy examples**:
+  - `simple_counter/`: Basic Verilog counter with testbench
+  - `systemverilog_demo.sv`: SystemVerilog language features
+
+See [examples/README_TOOLS.md](examples/README_TOOLS.md) for detailed usage instructions.
 
 ## Project Layout
 ```
@@ -65,6 +109,7 @@ openhdl-ide/
 ## Documentation
 - [docs/INSTALL.md](docs/INSTALL.md): OS/tooling prerequisites & troubleshooting
 - [docs/USER_GUIDE.md](docs/USER_GUIDE.md): IDE walkthrough, workflows, shortcuts
+- [docs/TOOLS_GUIDE.md](docs/TOOLS_GUIDE.md): Complete guide to all integrated EDA tools
 - [docs/DEVELOPER_GUIDE.md](docs/DEVELOPER_GUIDE.md): Architecture notes, coding standards, roadmap
 
 ## Packaging

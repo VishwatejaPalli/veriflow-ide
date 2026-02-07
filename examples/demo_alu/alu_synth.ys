@@ -1,0 +1,33 @@
+# Yosys Synthesis Script for ALU
+# This demonstrates Yosys synthesis flow
+
+# Read design files
+read_verilog -sv alu.sv
+
+# Elaborate design
+hierarchy -check -top alu
+
+# High-level synthesis
+proc
+opt
+fsm
+opt
+memory
+opt
+
+# Technology mapping (generic)
+techmap
+opt
+
+# Print statistics
+stat
+
+# Generate graphical representation
+show -prefix alu_schematic -format dot
+
+# Write output files
+write_verilog -noattr alu_synth.v
+write_json alu_synth.json
+
+# Print final statistics
+stat

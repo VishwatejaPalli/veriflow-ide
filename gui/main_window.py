@@ -29,15 +29,29 @@ from PySide6.QtWidgets import (
 from gui.console import ConsoleWidget
 from gui.coverage import CoverageWidget
 from gui.diagnostics import DiagnosticsWidget
+from gui.dialogs import (
+	IverilogDialog,
+	YosysDialog,
+	VerilatorDialog,
+	VeribleDialog,
+	MagicDialog,
+	KLayoutDialog,
+)
 from gui.editor import EditorTabs
 from gui.file_tree import FileTreeWidget
 from gui.history import RunHistoryWidget
 from parser.error_parser import ErrorParser
 from tools.gtkwave import GtkWaveTool
 from tools.iverilog import IverilogTool
+from tools.klayout import KLayoutDRCTool, KLayoutTool
+from tools.magic import MagicTool, NetgenTool
+from tools.ngspice import NgSpiceTool
+from tools.openlane import OpenLaneTool, OpenROADTool
+from tools.opensta import OpenSTATool
+from tools.verible import VeribleFormatTool, VeribleLintTool
+from tools.verilator import VerilatorCoverageTool, VerilatorLintTool
 from tools.vvp import VvpTool
 from tools.yosys import YosysTool
-from tools.verilator import VerilatorCoverageTool, VerilatorLintTool
 from utils.runner import CommandRunner
 
 THEME_PALETTES = {
@@ -170,6 +184,17 @@ class MainWindow(QMainWindow):
 		self.gtkwave = GtkWaveTool()
 		self.verilator_lint = VerilatorLintTool()
 		self.verilator_coverage = VerilatorCoverageTool()
+		# New tools
+		self.verible_lint = VeribleLintTool()
+		self.verible_format = VeribleFormatTool()
+		self.magic = MagicTool()
+		self.netgen = NetgenTool()
+		self.klayout = KLayoutTool()
+		self.klayout_drc = KLayoutDRCTool()
+		self.ngspice = NgSpiceTool()
+		self.opensta = OpenSTATool()
+		self.openlane = OpenLaneTool()
+		self.openroad = OpenROADTool()
 		self._watermarks = []
 		self._version_label = None
 		self._load_user_settings()
@@ -194,12 +219,32 @@ class MainWindow(QMainWindow):
 		for action in toolbar.actions():
 			self.tools_menu.addAction(action)
 		self.tools_menu.addSeparator()
-		self._add_menu_action(self.tools_menu, "Lint (Verilator)", self.run_verilator_lint)
-		self._add_menu_action(
-			self.tools_menu,
-			"Coverage Report (Verilator)",
-			self.run_verilator_coverage,
-		)
+		
+		# Simulation & Verification submenu
+		sim_menu = self.tools_menu.addMenu("Simulation && Verification")
+		self._add_menu_action(sim_menu, "Compile with Icarus Verilog...", self.run_iverilog_dialog)
+		self._add_menu_action(sim_menu, "Lint with Verilator...", self.run_verilator_lint_dialog)
+		self._add_menu_action(sim_menu, "Coverage Report (Verilator)", self.run_verilator_coverage)
+		self._add_menu_action(sim_menu, "Lint with Verible...", self.run_verible_lint_dialog)
+		self._add_menu_action(sim_menu, "Format with Verible...", self.run_verible_format_dialog)
+		
+		# Synthesis submenu
+		synth_menu = self.tools_menu.addMenu("Synthesis")
+		self._add_menu_action(synth_menu, "Synthesize with Yosys...", self.run_yosys_dialog)
+		self._add_menu_action(synth_menu, "OpenLane Flow...", self.run_openlane_dialog)
+		self._add_menu_action(synth_menu, "OpenROAD...", self.run_openroad_dialog)
+		
+		# Layout & Physical Verification submenu
+		layout_menu = self.tools_menu.addMenu("Layout && Physical")
+		self._add_menu_action(layout_menu, "Open Magic...", self.run_magic_dialog)
+		self._add_menu_action(layout_menu, "KLayout Viewer...", self.run_klayout_dialog)
+		self._add_menu_action(layout_menu, "KLayout DRC...", self.run_klayout_drc_dialog)
+		self._add_menu_action(layout_menu, "Netgen LVS...", self.run_netgen_dialog)
+		
+		# Timing & SPICE submenu
+		timing_menu = self.tools_menu.addMenu("Timing && Analog")
+		self._add_menu_action(timing_menu, "Static Timing (OpenSTA)...", self.run_opensta_dialog)
+		self._add_menu_action(timing_menu, "NgSpice Simulation...", self.run_ngspice_dialog)
 
 		main_splitter = QSplitter(Qt.Orientation.Horizontal)
 		self.file_tree = FileTreeWidget(Path.cwd())
@@ -1297,6 +1342,166 @@ class MainWindow(QMainWindow):
 				"Command Failed",
 				f"{description} exited with code {exit_code}. Check console for details.",
 			)
+	
+	def run_iverilog_dialog(self):
+		"""Open Icarus Verilog configuration dialog."""
+		dialog = IverilogDialog(self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "Icarus Verilog Compilation")
+	
+	def run_yosys_dialog(self):
+		"""Open Yosys configuration dialog."""
+		dialog = YosysDialog(self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "Yosys Synthesis")
+	
+	def run_verilator_lint_dialog(self):
+		"""Open Verilator lint configuration dialog."""
+		dialog = VerilatorDialog("lint", self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "Verilator Lint")
+	
+	def run_verible_lint_dialog(self):
+		"""Open Verible lint configuration dialog."""
+		dialog = VeribleDialog("lint", self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "Veribe Lint")
+	
+	def run_verible_format_dialog(self):
+		"""Open Verible format configuration dialog."""
+		dialog = VeribleDialog("format", self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "Verible Format")
+	
+	def run_magic_dialog(self):
+		"""Open Magic layout tool configuration dialog."""
+		dialog = MagicDialog(self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "Magic Layout Tool")
+	
+	def run_klayout_dialog(self):
+		"""Open KLayout viewer configuration dialog."""
+		dialog = KLayoutDialog("view", self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "KLayout Viewer")
+	
+	def run_klayout_drc_dialog(self):
+		"""Open KLayout DRC configuration dialog."""
+		dialog = KLayoutDialog("drc", self)
+		if dialog.exec() == QDialog.DialogCode.Accepted:
+			command = dialog.get_command()
+			self._execute_command(command, "KLayout DRC")
+	
+	def run_netgen_dialog(self):
+		"""Open Netgen LVS tool (placeholder - need dialog)."""
+		circuit1 = self._get_open_file(
+			"Select First Circuit Netlist",
+			"Netlist Files (*.spice *.sp *.cir);;All Files (*)",
+		)
+		if not circuit1:
+			return
+		
+		circuit2 = self._get_open_file(
+			"Select Second Circuit Netlist",
+			"Netlist Files (*.spice *.sp *.cir);;All Files (*)",
+		)
+		if not circuit2:
+			return
+		
+		setup = self._get_open_file(
+			"Select Netgen Setup File",
+			"Setup Files (*.tcl *.setup);;All Files (*)",
+		)
+		if not setup:
+			return
+		
+		output = self._get_save_file(
+			"Save Comparison Report",
+			"Report Files (*.out *.txt);;All Files (*)",
+		)
+		
+		command = self.netgen.build_command(
+			circuit1, circuit2, setup, 
+			output_file=output or None
+		)
+		self._execute_command(command, "Netgen LVS")
+	
+	def run_opensta_dialog(self):
+		"""Open OpenSTA timing analysis (placeholder)."""
+		script = self._get_open_file(
+			"Select OpenSTA Script",
+			"TCL Scripts (*.tcl);;All Files (*)",
+		)
+		if not script:
+			return
+		
+		command = self.opensta.build_command(script)
+		self._execute_command(command, "OpenSTA Timing Analysis")
+	
+	def run_ngspice_dialog(self):
+		"""Open NgSpice simulation (placeholder)."""
+		netlist = self._get_open_file(
+			"Select SPICE Netlist",
+			"SPICE Files (*.sp *.cir *.spice);;All Files (*)",
+		)
+		if not netlist:
+			return
+		
+		output = self._get_save_file(
+			"Save Output Log",
+			"Log Files (*.log *.txt);;All Files (*)",
+		)
+		
+		command = self.ngspice.build_command(
+			netlist, 
+			batch=True, 
+			output_file=output or None
+		)
+		self._execute_command(command, "NgSpice Simulation")
+	
+	def run_openlane_dialog(self):
+		"""Open OpenLane flow (placeholder)."""
+		design_name, ok = QInputDialog.getText(
+			self, "OpenLane Flow", "Enter design name:"
+		)
+		if not ok or not design_name.strip():
+			return
+		
+		design_dir = self._get_directory("Select Design Directory")
+		if not design_dir:
+			return
+		
+		command = self.openlane.build_command(
+			design_dir, design_name.strip()
+		)
+		self._execute_command(command, "OpenLane Flow")
+	
+	def run_openroad_dialog(self):
+		"""Open OpenROAD (placeholder)."""
+		script = self._get_open_file(
+			"Select OpenROAD Script",
+			"TCL Scripts (*.tcl);;All Files (*)",
+		)
+		if not script:
+			return
+		
+		log = self._get_save_file(
+			"Save Log File (optional)",
+			"Log Files (*.log);;All Files (*)",
+		)
+		
+		command = self.openroad.build_command(
+			script, 
+			log_file=log or None
+		)
+		self._execute_command(command, "OpenROAD")
 
 	def closeEvent(self, event):
 		self._save_user_settings()

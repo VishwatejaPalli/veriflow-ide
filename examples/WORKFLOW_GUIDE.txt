@@ -1,0 +1,307 @@
+
+    ╔═══════════════════════════════════════════════════════════════╗
+    ║          OpenHDL-IDE Tool Flow Quick Reference                ║
+    ╚═══════════════════════════════════════════════════════════════╝
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                     DIGITAL DESIGN FLOW                              │
+└──────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐
+    │   RTL Code  │  (.sv, .v files)
+    │  alu.sv     │
+    └──────┬──────┘
+           │
+           ├────────────────────────────────────────┐
+           │                                        │
+           ▼                                        ▼
+    ┌─────────────┐                        ┌─────────────┐
+    │  LINT CHECK │                        │ FORMATTING  │
+    │  Verilator  │◄─────GUI Dialog        │   Verible   │
+    │  Verible    │                        │   Format    │
+    └──────┬──────┘                        └─────────────┘
+           │
+           │ All checks pass
+           │
+           ▼
+    ┌─────────────┐
+    │  COMPILE    │
+    │  Icarus     │◄─────GUI Dialog with file selection
+    │  Verilog    │      + options (standard, defines, etc.)
+    └──────┬──────┘
+           │
+           │ Generates .vvp
+           │
+           ▼
+    ┌─────────────┐
+    │  SIMULATE   │
+    │    VVP      │
+    │             │
+    └──────┬──────┘
+           │
+           │ Generates .vcd
+           │
+           ▼
+    ┌─────────────┐
+    │  WAVEFORM   │
+    │  GTKWave    │◄─────View timing diagrams
+    │             │
+    └──────┬──────┘
+           │
+           │ Verified design
+           │
+           ▼
+    ┌─────────────┐
+    │  SYNTHESIS  │
+    │   Yosys     │◄─────GUI Dialog with script selection
+    │             │      + verbose/quiet options
+    └──────┬──────┘
+           │
+           │ Generates netlist
+           │
+           ▼
+    ┌─────────────┐
+    │ Gate-level  │
+    │  Netlist    │
+    └─────────────┘
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                     SYNTHESIS TO LAYOUT FLOW                         │
+└──────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐
+    │    RTL      │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │   Yosys     │◄─────Technology mapping
+    │  Synthesis  │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │  OpenLane   │◄─────Complete RTL-to-GDSII flow
+    │    or       │      (Optional: for ASIC)
+    │  OpenROAD   │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │   Layout    │
+    │    .gds     │
+    └──────┬──────┘
+           │
+           ├────────────────┬────────────────┐
+           │                │                │
+           ▼                ▼                ▼
+    ┌──────────┐    ┌──────────┐    ┌──────────┐
+    │  Magic   │    │ KLayout  │    │ KLayout  │
+    │  Viewer  │    │  Viewer  │    │   DRC    │
+    │          │    │          │    │  Check   │
+    └──────────┘    └──────────┘    └────┬─────┘
+                                         │
+                                         ▼
+                                  ┌──────────┐
+                                  │   DRC    │
+                                  │  Report  │
+                                  └──────────┘
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                   VERIFICATION & ANALYSIS FLOW                       │
+└──────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐
+    │  Schematic  │
+    │  Netlist    │
+    └──────┬──────┘
+           │
+           └──────────┐
+                      │
+           ┌──────────┴──────┐
+           │                 │
+           ▼                 ▼
+    ┌─────────────┐   ┌─────────────┐
+    │   Layout    │   │  Extracted  │
+    │  Netlist    │   │  Netlist    │
+    └──────┬──────┘   └──────┬──────┘
+           │                 │
+           │                 │
+           └────────┬────────┘
+                    │
+                    ▼
+            ┌───────────────┐
+            │  Netgen LVS   │◄─────GUI Dialog
+            │  Comparison   │
+            └───────┬───────┘
+                    │
+                    └────┐
+                         │
+                ┌────────┴────────┐
+                │                 │
+                ▼                 ▼
+         ┌──────────┐      ┌──────────┐
+         │   PASS   │      │   FAIL   │
+         │  Report  │      │  Errors  │
+         └──────────┘      └──────────┘
+
+
+    ┌─────────────┐
+    │ Gate-level  │
+    │  Netlist    │
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │  OpenSTA    │◄─────SDC constraints
+    │   Timing    │      + liberty files
+    │  Analysis   │
+    └──────┬──────┘
+           │
+           ├────────────┬────────────┐
+           │            │            │
+           ▼            ▼            ▼
+    ┌──────────┐ ┌──────────┐ ┌──────────┐
+    │  Setup   │ │   Hold   │ │  Other   │
+    │  Checks  │ │  Checks  │ │ Violations│
+    └──────────┘ └──────────┘ └──────────┘
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                     ANALOG SIMULATION FLOW                           │
+└──────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────┐
+    │   SPICE     │
+    │  Netlist    │  (.sp, .cir files)
+    └──────┬──────┘
+           │
+           ▼
+    ┌─────────────┐
+    │  NgSpice    │◄─────GUI Dialog with analysis options
+    │ Simulation  │      (tran, ac, dc)
+    └──────┬──────┘
+           │
+           ├────────────┬────────────┐
+           │            │            │
+           ▼            ▼            ▼
+    ┌──────────┐ ┌──────────┐ ┌──────────┐
+    │   .raw   │ │  Plots   │ │  Meas.   │
+    │  Output  │ │          │ │  Results │
+    └──────────┘ └──────────┘ └──────────┘
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                        GUI DIALOG FEATURES                           │
+└──────────────────────────────────────────────────────────────────────┘
+
+    Every tool dialog includes:
+    
+    ╔═══════════════════════════════════════╗
+    ║   Tool Configuration Dialog           ║
+    ╠═══════════════════════════════════════╣
+    ║ [ File Selection Widget ]             ║
+    ║   ├─ Add Files...                     ║
+    ║   ├─ Remove Selected                  ║
+    ║   └─ Clear All                        ║
+    ║                                       ║
+    ║ [ Options Section ]                   ║
+    ║   ├─ Checkboxes for flags             ║
+    ║   ├─ Combo boxes for choices          ║
+    ║   ├─ Spin boxes for numbers           ║
+    ║   └─ Text fields for extra args       ║
+    ║                                       ║
+    ║ [ Command Preview ]                   ║
+    ║   Shows exact command-line            ║
+    ║   Updates in real-time                ║
+    ║                                       ║
+    ║      [ Cancel ]  [ OK ]               ║
+    ╚═══════════════════════════════════════╝
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                      EXAMPLE USAGE WORKFLOW                          │
+└──────────────────────────────────────────────────────────────────────┘
+
+    Step 1: Open IDE
+    $ python main.py
+
+    Step 2: Use Menu System
+    Tools → Simulation & Verification → Compile with Icarus Verilog...
+    
+    Step 3: Configure in Dialog
+    ┌─────────────────────────────┐
+    │ Add: alu.sv, alu_tb.sv      │
+    │ Output: alu_tb.vvp          │
+    │ Standard: SystemVerilog     │
+    │ Preview: iverilog -g2012... │
+    └─────────────────────────────┘
+    
+    Step 4: Execute
+    Click OK → Check Console tab for output
+    
+    Step 5: View Results
+    - Console: Compilation messages
+    - Diagnostics: Errors with line numbers
+    - History: Re-run with one click
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                    KEYBOARD SHORTCUTS                                │
+└──────────────────────────────────────────────────────────────────────┘
+
+    File Operations:
+    - Ctrl+N        New File
+    - Ctrl+O        Open File
+    - Ctrl+S        Save File
+    - Ctrl+Shift+S  Save As
+    
+    Editing:
+    - Ctrl+Z        Undo
+    - Ctrl+Y        Redo
+    - Ctrl+X        Cut
+    - Ctrl+C        Copy
+    - Ctrl+V        Paste
+    - Ctrl+A        Select All
+    
+    View:
+    - Ctrl++        Zoom In
+    - Ctrl+-        Zoom Out
+    - Ctrl+0        Reset Zoom
+
+
+┌──────────────────────────────────────────────────────────────────────┐
+│                     OUTPUT PANEL TABS                                │
+└──────────────────────────────────────────────────────────────────────┘
+
+    ┌─────────────────────────────────────────────┐
+    │ [Console] [Diagnostics] [Coverage] [History]│
+    ├─────────────────────────────────────────────┤
+    │ Console:                                    │
+    │   - All tool output                         │
+    │   - Command execution logs                  │
+    │   - Timestamped messages                    │
+    │                                             │
+    │ Diagnostics:                                │
+    │   - Parsed errors/warnings                  │
+    │   - Click to jump to code                   │
+    │   - File, Line, Type, Message               │
+    │                                             │
+    │ Coverage:                                   │
+    │   - Verilator coverage reports              │
+    │   - Line/toggle coverage stats              │
+    │                                             │
+    │ History:                                    │
+    │   - All executed commands                   │
+    │   - Timestamps and status                   │
+    │   - Click to re-run                         │
+    └─────────────────────────────────────────────┘
+
+
+    For complete documentation:
+    - docs/USER_GUIDE.md       - General usage
+    - docs/TOOLS_GUIDE.md      - Tool-specific details
+    - examples/README_TOOLS.md - Demo file usage
+

@@ -1,0 +1,9 @@
+# Verible Waiver File Example
+# Use this to suppress specific lint warnings
+
+# Waive line-length violations in testbench
+waive --rule=line-length --location=alu_tb.sv
+
+# Waive some style guidelines that may not fit your project
+# waive --rule=parameter-name-style
+# waive --rule=port-name-style

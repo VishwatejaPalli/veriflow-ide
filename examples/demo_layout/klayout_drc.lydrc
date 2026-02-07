@@ -1,0 +1,31 @@
+# KLayout DRC Script Example
+# This demonstrates design rule checking
+
+# Report setup
+report("DRC Report", "drc_report.txt")
+
+# Define layers (example layer numbers)
+nwell = input(1, 0)
+diff  = input(2, 0)
+poly  = input(3, 0)
+metal1 = input(4, 0)
+contact = input(5, 0)
+
+# Minimum width rules
+diff.width(0.15, angle_limit(80)).output("DIFF.1", "DIFF minimum width violation")
+poly.width(0.10, angle_limit(80)).output("POLY.1", "POLY minimum width violation")
+metal1.width(0.14, angle_limit(80)).output("M1.1", "METAL1 minimum width violation")
+
+# Minimum space rules
+diff.space(0.20, angle_limit(80)).output("DIFF.2", "DIFF minimum space violation")
+poly.space(0.15, angle_limit(80)).output("POLY.2", "POLY minimum space violation")
+metal1.space(0.14, angle_limit(80)).output("M1.2", "METAL1 minimum space violation")
+
+# Overlap rules
+poly_overlap = poly.not(diff)
+poly_overlap.output("POLY.3", "POLY must overlap DIFF at gates")
+
+# Enclosure rules
+diff.not(nwell.sized(0.3)).output("NWELL.1", "NWELL must enclose DIFF by 0.3um")
+
+puts "DRC rules defined"

@@ -4,18 +4,18 @@ from pathlib import Path
 from typing import Dict, List, Optional, Tuple, Union, cast
 
 from PySide6.QtCore import QRegularExpression, Qt, Signal
-from PySide6.QtGui import QColor, QFont, QTextCharFormat, QSyntaxHighlighter, QTextCursor
-from PySide6.QtWidgets import QPlainTextEdit, QTabWidget, QVBoxLayout, QWidget
+from PySide6.QtGui import QColor, QFont, QTextCharFormat, QSyntaxHighlighter, QTextCursor, QPainter, QTextDocument
+from PySide6.QtWidgets import QPlainTextEdit, QTabWidget, QVBoxLayout, QWidget, QTextEdit
 
 QsciLexerType = object
 QsciScintillaType = object
 
 DEFAULT_LANGUAGE = "verilog"
+DEFAULT_FONT_SIZE = 11
+DEFAULT_FONT_FAMILY = "Fira Code"
 
 # Case-insensitive regex option constant placed before schemes for availability
 CASE_INSENSITIVE = QRegularExpression.PatternOption.CaseInsensitiveOption
-
-# Fast mode: prefer responsiveness over visual features like highlighting
 
 KEYWORD_SETS = {
 	"verilog": [
@@ -158,6 +158,14 @@ FALLBACK_SCHEMES = {
 	}
 FALLBACK_SCHEMES["default"] = FALLBACK_SCHEMES["verilog"]
 
+# Color schemes for editor
+COLOR_SCHEME = {
+	"current_line": QColor("#E8F2FF"),
+	"line_number_bg": QColor("#F0F0F0"),
+	"line_number_fg": QColor("#666666"),
+	"brace_match": QColor("#90EE90"),
+	"brace_unmatch": QColor("#FF6B6B"),
+}
 
 QsciScintilla: Optional[type[QsciScintillaType]] = None
 LEXER_CLASS_MAP: Dict[str, type[QsciLexerType]] = {}
@@ -178,8 +186,26 @@ except ModuleNotFoundError:  # pragma: no cover - optional dependency
 	HAVE_QSCINTILLA = False
 
 
+class LineNumberArea(QWidget):
+	"""Line number area widget for QPlainTextEdit."""
+
+	def __init__(self, editor):
+		super().__init__(editor)
+		self.editor = editor
+
+	def sizeHint(self):
+		return self.editor.line_number_area_width()
+
+	def paintEvent(self, event):
+		self.editor.line_number_area_paint_event(event)
+
+
 class KeywordHighlighter(QSyntaxHighlighter):
-	"""Fallback syntax highlighting when QScintilla is missing."""
+	"""Fallback syntax highlighting when QScintilla is missing.
+	
+	Provides regex-based syntax highlighting for Verilog, SystemVerilog, and C++.
+	Supports keywords, strings, numbers, comments, and language-specific directives.
+	"""
 
 	def __init__(self, document):
 		super().__init__(document)
@@ -230,10 +256,11 @@ class KeywordHighlighter(QSyntaxHighlighter):
 		unique = sorted(set(keywords))
 		if not unique:
 			return
-		for word in unique:
-			pattern = QRegularExpression(rf"\\b{re.escape(word)}\\b")
-			pattern.setPatternOptions(CASE_INSENSITIVE)
-			self._rules.append((pattern, self._formats["keyword"]))
+		# Optimize: combine keywords into single regex pattern
+		pattern_str = r"\b(" + "|".join(re.escape(word) for word in unique) + r")\b"
+		pattern = QRegularExpression(pattern_str)
+		pattern.setPatternOptions(CASE_INSENSITIVE)
+		self._rules.append((pattern, self._formats["keyword"]))
 
 	def highlightBlock(self, text):  # noqa: N802 - Qt API signature
 		for pattern, fmt in self._rules:
@@ -274,6 +301,20 @@ class KeywordHighlighter(QSyntaxHighlighter):
 
 
 class EditorWidget(QWidget):
+	"""Main editor widget supporting both QScintilla and QPlainTextEdit.
+	
+	Features:
+	- Syntax highlighting for Verilog, SystemVerilog, and C++
+	- Line numbers
+	- Current line highlighting
+	- Brace matching (QScintilla only)
+	- Code folding (QScintilla only)
+	- Find/replace
+	- Comment toggling
+	- Indent/dedent
+	- Zoom controls
+	- Dirty state tracking
+	"""
 	dirtyChanged = Signal(bool)
 
 	def __init__(self, parent=None):
@@ -283,29 +324,29 @@ class EditorWidget(QWidget):
 		self._dirty = False
 		self._suspend_dirty = False
 		self.language = DEFAULT_LANGUAGE
-		self._current_font = QFont("Fira Code", 11)
+		self._current_font = QFont(DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE)
 		self._lexer = None
 		self.highlighter = None
+		self.line_number_area = None
 		layout = QVBoxLayout()
+		
 		if QsciScintilla is not None:
 			self.editor = QsciScintilla()
-			# Fast: disable wrapping and avoid extra decorations/features
-			set_wrap = getattr(self.editor, "setWrapMode", None)
-			wrap_none = getattr(QsciScintilla, "WrapNone", None)
-			if callable(set_wrap):
-				set_wrap(wrap_none if wrap_none is not None else 0)
+			self._configure_qscintilla()
 		else:
 			self.editor = QPlainTextEdit()
-			self.editor.setPlaceholderText("Basic highlight mode (QScintilla missing)")
-			# Fast: avoid costly wrapping
+			self.editor.setPlaceholderText("Syntax highlighting enabled")
 			self.editor.setLineWrapMode(QPlainTextEdit.LineWrapMode.NoWrap)
-			self.highlighter = None
+			self._configure_plain_text_editor()
+			
 		layout.addWidget(cast(QWidget, self.editor))
 		self.setLayout(layout)
+		
 		sig = getattr(self.editor, "textChanged", None)
 		connect = getattr(sig, "connect", None)
 		if callable(connect):
 			connect(self._handle_text_changed)
+			
 		self.set_language(DEFAULT_LANGUAGE)
 		self.set_editor_font(self._current_font)
 
@@ -425,6 +466,291 @@ class EditorWidget(QWidget):
 		fn = getattr(w, "selectAll", None)
 		if callable(fn):
 			fn()
+	
+	def find_text(self, text, case_sensitive=False, whole_words=False, regex=False):
+		"""Find text in the editor."""
+		if not text:
+			return False
+		
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			# Use QScintilla find
+			try:
+				return self.editor.findFirst(  # type: ignore
+					text, regex, case_sensitive, whole_words,
+					True,  # wrap
+					True   # forward
+				)
+			except (TypeError, AttributeError):
+				pass
+		
+		# Use QPlainTextEdit find
+		if isinstance(self.editor, QPlainTextEdit):
+			flags = QTextDocument.FindFlag(0)
+			if case_sensitive:
+				flags |= QTextDocument.FindFlag.FindCaseSensitively
+			if whole_words:
+				flags |= QTextDocument.FindFlag.FindWholeWords
+			
+			cursor = self.editor.textCursor()  # type: ignore
+			new_cursor = self.editor.document().find(text, cursor, flags)  # type: ignore
+			
+			if not new_cursor.isNull():
+				self.editor.setTextCursor(new_cursor)  # type: ignore
+				return True
+			# Wrap around
+			new_cursor = self.editor.document().find(text, 0, flags)  # type: ignore
+			if not new_cursor.isNull():
+				self.editor.setTextCursor(new_cursor)  # type: ignore
+				return True
+		return False
+	
+	def find_next(self):
+		"""Find next occurrence."""
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			try:
+				self.editor.findNext()  # type: ignore
+			except AttributeError:
+				pass
+	
+	def replace_text(self, find_text, replace_with, case_sensitive=False):
+		"""Replace current selection if it matches find_text."""
+		if not find_text:
+			return False
+		
+		if isinstance(self.editor, QPlainTextEdit):
+			cursor = self.editor.textCursor()
+			if cursor.hasSelection():
+				selected = cursor.selectedText()
+				matches = (selected == find_text if case_sensitive else 
+				          selected.lower() == find_text.lower())
+				if matches:
+					cursor.insertText(replace_with)
+					return True
+		return False
+	
+	def replace_all(self, find_text, replace_with, case_sensitive=False):
+		"""Replace all occurrences."""
+		if not find_text:
+			return 0
+		
+		count = 0
+		if isinstance(self.editor, QPlainTextEdit):
+			cursor = QTextCursor(self.editor.document())
+			cursor.beginEditBlock()
+			
+			flags = QTextDocument.FindFlag(0)
+			if case_sensitive:
+				flags |= QTextDocument.FindFlag.FindCaseSensitively
+			
+			while True:
+				cursor = self.editor.document().find(find_text, cursor, flags)
+				if cursor.isNull():
+					break
+				cursor.insertText(replace_with)
+				count += 1
+			
+			cursor.endEditBlock()
+		return count
+	
+	def toggle_comment(self):
+		"""Toggle line comments for selected lines."""
+		if not isinstance(self.editor, QPlainTextEdit):
+			return
+		
+		cursor = self.editor.textCursor()
+		start = cursor.selectionStart()
+		end = cursor.selectionEnd()
+		
+		# Get the block range
+		cursor.setPosition(start)
+		start_block = cursor.blockNumber()
+		cursor.setPosition(end)
+		end_block = cursor.blockNumber()
+		
+		# Check if all lines are commented
+		cursor.setPosition(start)
+		all_commented = True
+		for i in range(start_block, end_block + 1):
+			cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+			block_text = cursor.block().text().lstrip()
+			if not block_text.startswith("//"):
+				all_commented = False
+				break
+			cursor.movePosition(QTextCursor.MoveOperation.NextBlock)
+		
+		# Toggle comments
+		cursor.setPosition(start)
+		cursor.beginEditBlock()
+		
+		for i in range(start_block, end_block + 1):
+			cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+			if all_commented:
+				# Remove comment
+				block_text = cursor.block().text()
+				comment_pos = block_text.find("//")
+				if comment_pos >= 0:
+					cursor.movePosition(QTextCursor.MoveOperation.Right, 
+					                   QTextCursor.MoveMode.MoveAnchor, comment_pos)
+					cursor.deleteChar()
+					cursor.deleteChar()
+					if cursor.block().text()[comment_pos:comment_pos+1] == " ":
+						cursor.deleteChar()
+			else:
+				# Add comment
+				cursor.insertText("// ")
+			
+			cursor.movePosition(QTextCursor.MoveOperation.NextBlock)
+		
+		cursor.endEditBlock()
+	
+	def zoom_in(self):
+		"""Increase font size."""
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			try:
+				self.editor.zoomIn()  # type: ignore
+			except AttributeError:
+				pass
+		else:
+			try:
+				font = self.editor.font()  # type: ignore
+				size = font.pointSize()
+				if size < 72:
+					font.setPointSize(size + 1)
+					self.set_editor_font(font)
+			except AttributeError:
+				pass
+	
+	def zoom_out(self):
+		"""Decrease font size."""
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			try:
+				self.editor.zoomOut()  # type: ignore
+			except AttributeError:
+				pass
+		else:
+			try:
+				font = self.editor.font()  # type: ignore
+				size = font.pointSize()
+				if size > 6:
+					font.setPointSize(size - 1)
+					self.set_editor_font(font)
+			except AttributeError:
+				pass
+	
+	def reset_zoom(self):
+		"""Reset font size to default."""
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			try:
+				self.editor.zoomTo(0)  # type: ignore
+			except AttributeError:
+				pass
+		else:
+			font = QFont(DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE)
+			self.set_editor_font(font)
+	
+	def indent(self):
+		"""Indent selected lines or current line."""
+		if not isinstance(self.editor, QPlainTextEdit):
+			return
+		
+		cursor = self.editor.textCursor()
+		start = cursor.selectionStart()
+		end = cursor.selectionEnd()
+		
+		cursor.setPosition(start)
+		start_block = cursor.blockNumber()
+		cursor.setPosition(end)
+		end_block = cursor.blockNumber()
+		
+		cursor.setPosition(start)
+		cursor.beginEditBlock()
+		
+		for i in range(start_block, end_block + 1):
+			cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+			cursor.insertText("    ")  # 4 spaces
+			cursor.movePosition(QTextCursor.MoveOperation.NextBlock)
+		
+		cursor.endEditBlock()
+	
+	def dedent(self):
+		"""Dedent selected lines or current line."""
+		if not isinstance(self.editor, QPlainTextEdit):
+			return
+		
+		cursor = self.editor.textCursor()
+		start = cursor.selectionStart()
+		end = cursor.selectionEnd()
+		
+		cursor.setPosition(start)
+		start_block = cursor.blockNumber()
+		cursor.setPosition(end)
+		end_block = cursor.blockNumber()
+		
+		cursor.setPosition(start)
+		cursor.beginEditBlock()
+		
+		for i in range(start_block, end_block + 1):
+			cursor.movePosition(QTextCursor.MoveOperation.StartOfBlock)
+			block_text = cursor.block().text()
+			
+			# Remove up to 4 leading spaces or 1 tab
+			if block_text.startswith("    "):
+				for _ in range(4):
+					cursor.deleteChar()
+			elif block_text.startswith("\t"):
+				cursor.deleteChar()
+			elif block_text.startswith(" "):
+				# Remove any leading spaces (up to 4)
+				spaces = len(block_text) - len(block_text.lstrip(' '))
+				for _ in range(min(spaces, 4)):
+					cursor.deleteChar()
+			
+			cursor.movePosition(QTextCursor.MoveOperation.NextBlock)
+		
+		cursor.endEditBlock()
+	
+	def get_cursor_position(self):
+		"""Get current cursor position (line, column)."""
+		try:
+			if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+				line, col = self.editor.getCursorPosition()  # type: ignore
+				return (line + 1, col + 1)  # Convert to 1-based
+		except (TypeError, AttributeError):
+			pass
+		
+		try:
+			cursor = self.editor.textCursor()  # type: ignore
+			line = cursor.blockNumber() + 1
+			col = cursor.columnNumber() + 1
+			return (line, col)
+		except AttributeError:
+			return (1, 1)
+	
+	def get_selection(self):
+		"""Get currently selected text."""
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			try:
+				return self.editor.selectedText()  # type: ignore
+			except AttributeError:
+				pass
+		
+		try:
+			return self.editor.textCursor().selectedText()  # type: ignore
+		except AttributeError:
+			return ""
+	
+	def has_selection(self):
+		"""Check if there is selected text."""
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			try:
+				return self.editor.hasSelectedText()  # type: ignore
+			except AttributeError:
+				pass
+		
+		try:
+			return self.editor.textCursor().hasSelection()  # type: ignore
+		except AttributeError:
+			return False
 
 	def goto_line(self, line):
 		if line is None or line < 1:
@@ -455,9 +781,177 @@ class EditorWidget(QWidget):
 		self.language = language or DEFAULT_LANGUAGE
 		w = self.editor
 		lexer_cls = LEXER_CLASS_MAP.get(self.language) or LEXER_CLASS_MAP.get(DEFAULT_LANGUAGE)
-		# Fast: skip setting lexer/highlighter to maximize responsiveness
-		if self.highlighter is not None:
+		
+		if QsciScintilla is not None and isinstance(self.editor, QsciScintilla):
+			# Use QScintilla lexer if available
+			if lexer_cls:
+				try:
+					self._lexer = lexer_cls(self.editor)  # type: ignore
+					self._lexer.setDefaultFont(self._current_font)  # type: ignore
+					self.editor.setLexer(self._lexer)  # type: ignore
+				except (TypeError, AttributeError):
+					pass
+		elif self.highlighter is not None:
+			# Use fallback highlighter for QPlainTextEdit
 			self.highlighter.set_language(self.language)
+	
+	def _configure_qscintilla(self):
+		"""Configure QScintilla editor with advanced features.
+		
+		Note: QsciScintilla is not available in PySide6. This is a placeholder
+		for future compatibility if QsciScintilla support is added.
+		"""
+		if QsciScintilla is None:
+			return
+		
+		if not isinstance(self.editor, QsciScintilla):
+			return
+		
+		# Type: ignore because these methods are only available on QsciScintilla
+		try:
+			editor: QsciScintillaType = self.editor  # type: ignore
+			
+			# Line numbers
+			editor.setMarginType(0, QsciScintilla.NumberMargin)  # type: ignore
+			editor.setMarginWidth(0, "00000")  # type: ignore
+			editor.setMarginsForegroundColor(COLOR_SCHEME["line_number_fg"])  # type: ignore
+			editor.setMarginsBackgroundColor(COLOR_SCHEME["line_number_bg"])  # type: ignore
+			
+			# Current line highlighting
+			editor.setCaretLineVisible(True)  # type: ignore
+			editor.setCaretLineBackgroundColor(COLOR_SCHEME["current_line"])  # type: ignore
+			
+			# Brace matching
+			editor.setBraceMatching(QsciScintilla.SloppyBraceMatch)  # type: ignore
+			editor.setMatchedBraceBackgroundColor(COLOR_SCHEME["brace_match"])  # type: ignore
+			editor.setUnmatchedBraceBackgroundColor(COLOR_SCHEME["brace_unmatch"])  # type: ignore
+			
+			# Indentation guides
+			editor.setIndentationGuides(True)  # type: ignore
+			
+			# Auto-indentation
+			editor.setAutoIndent(True)  # type: ignore
+			editor.setTabWidth(4)  # type: ignore
+			editor.setIndentationsUseTabs(False)  # type: ignore
+			
+			# Folding
+			editor.setFolding(QsciScintilla.BoxedTreeFoldStyle)  # type: ignore
+			editor.setMarginWidth(2, 12)  # type: ignore
+			
+			# Disable wrapping
+			editor.setWrapMode(QsciScintilla.WrapNone)  # type: ignore
+			
+			# UTF-8 encoding
+			editor.setUtf8(True)  # type: ignore
+		except (AttributeError, TypeError):
+			# QsciScintilla methods not available, skip configuration
+			pass
+	
+	def _configure_plain_text_editor(self):
+		"""Configure QPlainTextEdit with line numbers and highlighting."""
+		if not isinstance(self.editor, QPlainTextEdit):
+			return
+		
+		editor = self.editor
+		
+		# Enable syntax highlighting
+		self.highlighter = KeywordHighlighter(editor.document())
+		
+		# Line numbers
+		self.line_number_area = LineNumberArea(self)
+		editor.blockCountChanged.connect(self.update_line_number_area_width)
+		editor.updateRequest.connect(self.update_line_number_area)
+		editor.cursorPositionChanged.connect(self.highlight_current_line)
+		
+		self.update_line_number_area_width(0)
+		self.highlight_current_line()
+		
+		# Tab settings - 4 spaces
+		font_metrics = editor.fontMetrics()
+		editor.setTabStopDistance(4 * font_metrics.horizontalAdvance(' '))
+	
+	def line_number_area_width(self):
+		"""Calculate the width needed for line numbers."""
+		if not isinstance(self.editor, QPlainTextEdit):
+			return 0
+		
+		digits = 1
+		max_num = max(1, self.editor.blockCount())
+		while max_num >= 10:
+			max_num //= 10
+			digits += 1
+		
+		space = 10 + self.editor.fontMetrics().horizontalAdvance('9') * digits
+		return space
+	
+	def update_line_number_area_width(self, _):
+		"""Update the width of the line number area."""
+		if isinstance(self.editor, QPlainTextEdit) and self.line_number_area:
+			self.editor.setViewportMargins(self.line_number_area_width(), 0, 0, 0)
+	
+	def update_line_number_area(self, rect, dy):
+		"""Update the line number area when scrolling."""
+		if not isinstance(self.editor, QPlainTextEdit) or not self.line_number_area:
+			return
+		
+		if dy:
+			self.line_number_area.scroll(0, dy)
+		else:
+			self.line_number_area.update(0, rect.y(), self.line_number_area.width(), rect.height())
+		
+		if rect.contains(self.editor.viewport().rect()):
+			self.update_line_number_area_width(0)
+	
+	def line_number_area_paint_event(self, event):
+		"""Paint the line numbers."""
+		if not isinstance(self.editor, QPlainTextEdit) or not self.line_number_area:
+			return
+		
+		painter = QPainter(self.line_number_area)
+		painter.fillRect(event.rect(), COLOR_SCHEME["line_number_bg"])
+		
+		block = self.editor.firstVisibleBlock()
+		block_number = block.blockNumber()
+		top = self.editor.blockBoundingGeometry(block).translated(self.editor.contentOffset()).top()
+		bottom = top + self.editor.blockBoundingRect(block).height()
+		
+		while block.isValid() and top <= event.rect().bottom():
+			if block.isVisible() and bottom >= event.rect().top():
+				number = str(block_number + 1)
+				painter.setPen(COLOR_SCHEME["line_number_fg"])
+				painter.drawText(0, int(top), self.line_number_area.width() - 5,
+				               self.editor.fontMetrics().height(),
+				               Qt.AlignmentFlag.AlignRight, number)
+			
+			block = block.next()
+			top = bottom
+			bottom = top + self.editor.blockBoundingRect(block).height()
+			block_number += 1
+	
+	def highlight_current_line(self):
+		"""Highlight the current line in QPlainTextEdit."""
+		if not isinstance(self.editor, QPlainTextEdit):
+			return
+		
+		extra_selections = []
+		
+		if not self.editor.isReadOnly():
+			selection = QTextEdit.ExtraSelection()
+			selection.format.setBackground(COLOR_SCHEME["current_line"])
+			selection.format.setProperty(QTextCharFormat.Property.FullWidthSelection, True)
+			selection.cursor = self.editor.textCursor()
+			selection.cursor.clearSelection()
+			extra_selections.append(selection)
+		
+		self.editor.setExtraSelections(extra_selections)
+	
+	def resizeEvent(self, event):
+		"""Handle resize events for line number area."""
+		super().resizeEvent(event)
+		if isinstance(self.editor, QPlainTextEdit) and self.line_number_area:
+			cr = self.editor.contentsRect()
+			self.line_number_area.setGeometry(cr.left(), cr.top(),
+			                                 self.line_number_area_width(), cr.height())
 
 	def _language_from_path(self, path):
 		if not path:
@@ -479,19 +973,34 @@ class EditorWidget(QWidget):
 
 
 class EditorTabs(QTabWidget):
+	"""Tab widget for managing multiple editor instances.
+	
+	Features:
+	- Multi-document interface
+	- Drag-and-drop tab reordering
+	- Dirty state indicators
+	- Automatic untitled document naming
+	- Tab closing with cleanup
+	"""
 	currentFileChanged = Signal(object)  # emits active path or None
 
 	def __init__(self, parent=None):
 		super().__init__(parent)
 		self.setTabsClosable(True)
 		self.setDocumentMode(True)
-		self._default_font = QFont("Fira Code", 11)
+		self.setMovable(True)  # Enable tab drag-and-drop reordering
+		self._default_font = QFont(DEFAULT_FONT_FAMILY, DEFAULT_FONT_SIZE)
 		self._untitled_counter = 0
 		self.tabCloseRequested.connect(self._close_tab)
 		self.currentChanged.connect(lambda _: self.currentFileChanged.emit(self.current_file_path()))
 		self.currentFileChanged.emit(None)
 
 	def new_document(self):
+		"""Create a new untitled document.
+		
+		Returns:
+			EditorWidget instance
+		"""
 		editor = EditorWidget()
 		self._setup_editor(editor)
 		self._assign_untitled_label(editor)
@@ -503,6 +1012,15 @@ class EditorTabs(QTabWidget):
 		return editor
 
 	def open_document(self, path, text):
+		"""Open a file in a new tab or focus existing tab.
+		
+		Args:
+			path: File path to open
+			text: Content of the file
+			
+		Returns:
+			EditorWidget instance or None
+		"""
 		existing = self._find_tab_by_path(path)
 		if existing is not None:
 			editor_w = self.widget(existing)
@@ -592,6 +1110,24 @@ class EditorTabs(QTabWidget):
 		label = "Untitled" if self._untitled_counter == 0 else f"Untitled{self._untitled_counter}"
 		self._untitled_counter += 1
 		editor.set_untitled_label(label)
+	
+	def close_all_tabs(self):
+		"""Close all tabs."""
+		while self.count() > 0:
+			self._close_tab(0)
+	
+	def close_other_tabs(self, index):
+		"""Close all tabs except the specified one."""
+		if index < 0 or index >= self.count():
+			return
+		
+		# Close tabs after the specified index
+		for i in range(self.count() - 1, index, -1):
+			self._close_tab(i)
+		
+		# Close tabs before the specified index
+		for i in range(index - 1, -1, -1):
+			self._close_tab(i)
 
 	def set_global_font(self, font):
 		if not font:
